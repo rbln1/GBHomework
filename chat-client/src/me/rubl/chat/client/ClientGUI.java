@@ -1,5 +1,7 @@
 package me.rubl.chat.client;
 
+import me.rubl.chat.common.Library;
+import me.rubl.chat.common.Library.Message;
 import me.rubl.network.SocketThread;
 import me.rubl.network.SocketThreadListener;
 
@@ -7,17 +9,22 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.Socket;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 
 
 public class ClientGUI extends JFrame implements ActionListener,
         Thread.UncaughtExceptionHandler, SocketThreadListener {
 
+    private final DateFormat DATE_FORMAT = new SimpleDateFormat("[HH:mm:ss] ");
+
     private static final int WIDTH = 400;
     private static final int HEIGHT = 300;
 
-    private final JTextArea taLog = new JTextArea();
+    private final JTextArea log = new JTextArea();
     private final JPanel panelTop = new JPanel(new GridLayout(2, 3));
     private final JTextField tfIPAddress = new JTextField("127.0.0.1");
     private final JTextField tfPort = new JTextField("8189");
@@ -32,27 +39,27 @@ public class ClientGUI extends JFrame implements ActionListener,
     private final JButton btnSend = new JButton("Send");
 
     private final JList<String> userList = new JList<>();
-
     private boolean shownIoErrors = false;
     private SocketThread socketThread;
 
-    private boolean isAuthorizationMode = true;
-
     private ClientGUI() {
         Thread.setDefaultUncaughtExceptionHandler(this);
-
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setSize(WIDTH, HEIGHT);
-
-        taLog.setEditable(false);
-        taLog.setLineWrap(true);
-        JScrollPane scrollLog = new JScrollPane(taLog);
+        log.setEditable(false);
+        log.setLineWrap(true);
+        JScrollPane scrollLog = new JScrollPane(log);
         JScrollPane scrollUser = new JScrollPane(userList);
         String[] users = {"user1", "user2", "user3", "user4", "user5",
                 "user_with_an_exceptionally_long_name_in_this_chat"};
         userList.setListData(users);
         scrollUser.setPreferredSize(new Dimension(100, 0));
+        cbAlwaysOnTop.addActionListener(this);
+        btnSend.addActionListener(this);
+        tfMessage.addActionListener(this);
+        btnLogin.addActionListener(this);
+        btnDisconnect.addActionListener(this);
 
         panelTop.add(tfIPAddress);
         panelTop.add(tfPort);
@@ -69,12 +76,6 @@ public class ClientGUI extends JFrame implements ActionListener,
         add(scrollUser, BorderLayout.EAST);
         add(panelTop, BorderLayout.NORTH);
         add(panelBottom, BorderLayout.SOUTH);
-
-        cbAlwaysOnTop.addActionListener(this);
-        tfMessage.addActionListener(this);
-        btnSend.addActionListener(this);
-        btnLogin.addActionListener(this);
-        btnDisconnect.addActionListener(this);
 
         setVisible(true);
     }
@@ -98,7 +99,7 @@ public class ClientGUI extends JFrame implements ActionListener,
         } else if (src == btnLogin) {
             connect();
         } else if (src == btnDisconnect) {
-            disconnect();
+            socketThread.close();
         } else {
             showException(Thread.currentThread(), new RuntimeException("Unknown action source: " + src));
         }
@@ -108,53 +109,43 @@ public class ClientGUI extends JFrame implements ActionListener,
         try {
             Socket socket = new Socket(tfIPAddress.getText(), Integer.parseInt(tfPort.getText()));
             socketThread = new SocketThread("Client", this, socket);
-            changeLogonState();
         } catch (IOException e) {
             showException(Thread.currentThread(), e);
         }
     }
-    private void disconnect() {
-        if (socketThread != null && socketThread.isAlive()) {
-            System.out.println("disconnect OK");
-            socketThread.close();
-            changeLogonState();
-        }
-    }
 
     private void sendMessage() {
-
-        String msg = tfMessage.getText().trim();
-
-        if (!msg.isEmpty()) {
-            // send message
-            boolean isSent = socketThread.sendMessage(msg);
-            if (isSent) {
-                // add message in textArea
-                putInTextArea(String.format("You: %s", msg));
-            }
-        }
-        // clear tfMessage
-        tfMessage.setText("");
-        // return focus to tfMessage
+        String msg = tfMessage.getText();
+        String username = tfLogin.getText();
+        if ("".equals(msg)) return;
+        tfMessage.setText(null);
         tfMessage.grabFocus();
+//        putLog(String.format("%s: %s", username, msg));
+//        wrtMsgToLogFile(msg, username);
+        socketThread.sendMessage(msg);
     }
 
-   private void putInTextArea(String msg) {
-        if (msg.trim().isEmpty()) return;
+    private void wrtMsgToLogFile(String msg, String username) {
+        try (FileWriter out = new FileWriter("log.txt", true)) {
+            out.write(username + ": " + msg + "\n");
+            out.flush();
+        } catch (IOException e) {
+            if (!shownIoErrors) {
+                shownIoErrors = true;
+                showException(Thread.currentThread(), e);
+            }
+        }
+    }
+
+    private void putLog(String msg) {
+        if ("".equals(msg)) return;
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
-                taLog.append(msg + "\n");
-                taLog.setCaretPosition(taLog.getDocument().getLength());
+                log.append(msg + "\n");
+                log.setCaretPosition(log.getDocument().getLength());
             }
         });
-    }
-
-    private void changeLogonState() {
-        isAuthorizationMode = !isAuthorizationMode;
-
-        panelTop.setVisible(isAuthorizationMode);
-        panelBottom.setVisible(!isAuthorizationMode);
     }
 
     private void showException(Thread t, Throwable e) {
@@ -183,27 +174,51 @@ public class ClientGUI extends JFrame implements ActionListener,
 
     @Override
     public void onSocketStart(SocketThread thread, Socket socket) {
-        putInTextArea("Start");
+//        putLog("Start");
     }
 
     @Override
     public void onSocketStop(SocketThread thread) {
-        putInTextArea("Stop");
+        panelBottom.setVisible(false);
+        panelTop.setVisible(true);
     }
 
     @Override
     public void onSocketReady(SocketThread thread, Socket socket) {
-        putInTextArea("Ready");
+        panelBottom.setVisible(true);
+        panelTop.setVisible(false);
+        String login = tfLogin.getText();
+        String password = new String(tfPassword.getPassword());
+        thread.sendMessage(Library.Message.formatForAuthRequest(login, password));
     }
 
     @Override
     public void onReceiveString(SocketThread thread, Socket socket, String msg) {
-        putInTextArea("Somebody: " + msg);
+        Message.MessageType messageType = Message.getMessageType(msg);
+
+        String messageBody = Message.getMessageBody(msg);
+
+        if (messageType == Message.MessageType.MSG_BROADCAST) {
+            String messageAuthor = Message.getMessageAuthor(msg);
+
+            if (messageAuthor.equals("Server")) {
+                putLog(String.format("<%s>", messageBody));
+                return;
+            }
+
+            long messageTime = Message.getMessageTime(msg);
+            String formattedTime = "";
+            if (messageTime != 0) {
+                formattedTime = DATE_FORMAT.format(messageTime);
+            }
+            putLog(String.format("%s%s: %s", formattedTime, messageAuthor, messageBody));
+        } else {
+            if (!messageBody.isEmpty()) putLog(String.format("<%s>", messageBody));
+        }
     }
 
     @Override
     public void onSocketException(SocketThread thread, Exception exception) {
         showException(thread, exception);
     }
-
 }
