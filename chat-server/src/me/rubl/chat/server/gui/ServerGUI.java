@@ -7,6 +7,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.IOException;
 
 public class ServerGUI extends JFrame implements ActionListener,
         Thread.UncaughtExceptionHandler, ChatServerListener {
@@ -25,12 +26,16 @@ public class ServerGUI extends JFrame implements ActionListener,
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
-                new ServerGUI();
+                try {
+                    new ServerGUI();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
         });
     }
 
-    private ServerGUI() {
+    private ServerGUI() throws IOException {
         Thread.setDefaultUncaughtExceptionHandler(this);
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         setBounds(POS_X, POS_Y, WIDTH, HEIGHT);
@@ -76,10 +81,10 @@ public class ServerGUI extends JFrame implements ActionListener,
 
     @Override
     public void onChatServerMessage(String msg) {
-        putLog(msg);
+        putToUILog(msg);
     }
 
-    private void putLog(String msg) {
+    private void putToUILog(String msg) {
         SwingUtilities.invokeLater(() -> {
             log.append(msg + "\n");
             log.setCaretPosition(log.getDocument().getLength());

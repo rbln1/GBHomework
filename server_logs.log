@@ -1,0 +1,20 @@
+[10:44:55:  | INFO]: Server thread started[10:44:55:  | INFO]: Server socket created[10:45:39:  | INFO]: Server thread started[10:45:39:  | INFO]: Server socket created[10:47:32:  | INFO]: Server thread started
+[10:47:33:  | INFO]: Server socket created
+[10:47:43:  | INFO]: Client connected
+[10:47:44:  | INFO]: Socket created
+[10:47:44:  | INFO]: Auth completed successfully with login: ivan
+[10:47:47:  | INFO]: Client 'ivan-igorevich' sent message: dfgsdfg
+[10:47:47:  | INFO]: Client 'ivan-igorevich' sent message: dsfg
+[10:47:47:  | INFO]: Client 'ivan-igorevich' sent message: dsf
+[10:47:48:  | INFO]: Client 'ivan-igorevich' sent message: g
+[10:47:48:  | INFO]: Client 'ivan-igorevich' sent message: dsfg
+[10:47:49:  | INFO]: Client 'ivan-igorevich' sent message: dsfg
+[10:47:50:  | INFO]: ivan-igorevich disconnected
+[10:47:55:  | INFO]: Client connected
+[10:47:55:  | INFO]: Socket created
+[10:47:55:  | INFO]: Auth failed with login: user1
+[10:47:56:  | INFO]: Client connected
+[10:47:56:  | INFO]: Socket created
+[10:47:56:  | INFO]: Auth completed successfully with login: user1
+[10:47:58:  | INFO]: Client 'user1' sent message: dsfgsdfg
+[10:49:58:  | INFO]: Server thread stopped
